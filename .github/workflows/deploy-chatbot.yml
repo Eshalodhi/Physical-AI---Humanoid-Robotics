@@ -1,0 +1,90 @@
+name: Deploy Chatbot Backend
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'chatbot/**'
+      - '.github/workflows/deploy-chatbot.yml'
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  test:
+    name: Test Chatbot
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: chatbot
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: chatbot/pyproject.toml
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run linting
+        run: ruff check src/
+
+      - name: Run type checking
+        run: mypy src/ --ignore-missing-imports
+
+      - name: Run tests
+        run: pytest --cov=src --cov-report=xml
+        env:
+          ENVIRONMENT: test
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          QDRANT_URL: ${{ secrets.QDRANT_URL }}
+          QDRANT_API_KEY: ${{ secrets.QDRANT_API_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+  build:
+    name: Build Docker Image
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./chatbot
+          push: false
+          tags: physical-ai-chatbot:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Uncomment and configure for your deployment platform
+  # deploy:
+  #   name: Deploy to Cloud
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     # For Render
+  #     - name: Deploy to Render
+  #       uses: johnbeynon/render-deploy-action@v0.0.8
+  #       with:
+  #         service-id: ${{ secrets.RENDER_SERVICE_ID }}
+  #         api-key: ${{ secrets.RENDER_API_KEY }}
+  #
+  #     # For Railway
+  #     # - name: Deploy to Railway
+  #     #   uses: railwayapp/railway-deploy@v1.0.0
+  #     #   with:
+  #     #     railway_token: ${{ secrets.RAILWAY_TOKEN }}

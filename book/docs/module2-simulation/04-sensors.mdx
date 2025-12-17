@@ -1,0 +1,461 @@
+---
+title: "Simulated Sensors"
+sidebar_label: "Sensors"
+sidebar_position: 4
+description: "Add cameras, LiDAR, IMU, and other sensors to simulated robots in Gazebo"
+keywords: [sensors, simulation, camera, LiDAR, IMU, Gazebo, ROS 2]
+---
+
+# Simulated Sensors
+
+<div className="learning-objectives">
+
+## Learning Objectives
+
+By the end of this chapter, you will be able to:
+
+- Add cameras and depth sensors to simulated robots
+- Configure LiDAR sensors with realistic parameters
+- Implement IMU and other proprioceptive sensors
+- Add realistic noise models to sensors
+
+</div>
+
+<div className="prerequisites">
+
+## Prerequisites
+
+Before starting this chapter, ensure you have:
+
+- **Chapter**: Completed [Physics Simulation](./03-physics)
+- **Knowledge**: ROS 2 sensor message types
+- **Software**: Gazebo with ros_gz packages
+
+</div>
+
+## Camera Sensors
+
+Add RGB cameras to your robot:
+
+```xml title="Camera sensor in SDF"
+<link name="camera_link">
+  <pose relative_to="head">0.1 0 0 0 0 0</pose>
+  <inertial>
+    <mass>0.1</mass>
+    <inertia>
+      <ixx>0.001</ixx><iyy>0.001</iyy><izz>0.001</izz>
+    </inertia>
+  </inertial>
+  <visual name="visual">
+    <geometry>
+      <box><size>0.03 0.08 0.03</size></box>
+    </geometry>
+  </visual>
+
+  <sensor name="camera" type="camera">
+    <pose>0 0 0 0 0 0</pose>
+    <camera>
+      <horizontal_fov>1.047</horizontal_fov>  <!-- 60 degrees -->
+      <image>
+        <width>640</width>
+        <height>480</height>
+        <format>R8G8B8</format>
+      </image>
+      <clip>
+        <near>0.1</near>
+        <far>100</far>
+      </clip>
+      <noise>
+        <type>gaussian</type>
+        <mean>0.0</mean>
+        <stddev>0.007</stddev>
+      </noise>
+    </camera>
+    <always_on>1</always_on>
+    <update_rate>30</update_rate>
+    <visualize>true</visualize>
+    <topic>camera/image_raw</topic>
+  </sensor>
+</link>
+```
+
+### Depth Camera (RGBD)
+
+```xml title="RGBD camera sensor"
+<sensor name="rgbd_camera" type="rgbd_camera">
+  <camera>
+    <horizontal_fov>1.047</horizontal_fov>
+    <image>
+      <width>640</width>
+      <height>480</height>
+    </image>
+    <clip>
+      <near>0.1</near>
+      <far>10</far>
+    </clip>
+    <depth_camera>
+      <clip>
+        <near>0.1</near>
+        <far>10.0</far>
+      </clip>
+    </depth_camera>
+    <noise>
+      <type>gaussian</type>
+      <mean>0</mean>
+      <stddev>0.01</stddev>
+    </noise>
+  </camera>
+  <always_on>1</always_on>
+  <update_rate>30</update_rate>
+  <topic>camera</topic>
+</sensor>
+```
+
+### ROS 2 Bridge for Camera
+
+```yaml title="config/camera_bridge.yaml"
+- ros_topic_name: "camera/image_raw"
+  gz_topic_name: "/camera/image_raw"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "gz.msgs.Image"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "camera/camera_info"
+  gz_topic_name: "/camera/camera_info"
+  ros_type_name: "sensor_msgs/msg/CameraInfo"
+  gz_type_name: "gz.msgs.CameraInfo"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "camera/depth"
+  gz_topic_name: "/camera/depth_image"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "gz.msgs.Image"
+  direction: GZ_TO_ROS
+```
+
+## LiDAR Sensors
+
+### 2D LiDAR (Laser Scanner)
+
+```xml title="2D LiDAR sensor"
+<sensor name="lidar" type="gpu_lidar">
+  <pose>0 0 0.2 0 0 0</pose>
+  <topic>scan</topic>
+  <update_rate>10</update_rate>
+  <ray>
+    <scan>
+      <horizontal>
+        <samples>720</samples>
+        <resolution>1</resolution>
+        <min_angle>-3.14159</min_angle>
+        <max_angle>3.14159</max_angle>
+      </horizontal>
+      <vertical>
+        <samples>1</samples>
+        <resolution>1</resolution>
+        <min_angle>0</min_angle>
+        <max_angle>0</max_angle>
+      </vertical>
+    </scan>
+    <range>
+      <min>0.1</min>
+      <max>30.0</max>
+      <resolution>0.01</resolution>
+    </range>
+    <noise>
+      <type>gaussian</type>
+      <mean>0</mean>
+      <stddev>0.01</stddev>
+    </noise>
+  </ray>
+  <always_on>1</always_on>
+  <visualize>true</visualize>
+</sensor>
+```
+
+### 3D LiDAR
+
+```xml title="3D LiDAR (Velodyne-style)"
+<sensor name="lidar_3d" type="gpu_lidar">
+  <pose>0 0 0.5 0 0 0</pose>
+  <topic>points</topic>
+  <update_rate>10</update_rate>
+  <ray>
+    <scan>
+      <horizontal>
+        <samples>1800</samples>
+        <resolution>1</resolution>
+        <min_angle>-3.14159</min_angle>
+        <max_angle>3.14159</max_angle>
+      </horizontal>
+      <vertical>
+        <samples>16</samples>
+        <resolution>1</resolution>
+        <min_angle>-0.26</min_angle>  <!-- -15 degrees -->
+        <max_angle>0.26</max_angle>   <!-- +15 degrees -->
+      </vertical>
+    </scan>
+    <range>
+      <min>0.5</min>
+      <max>100.0</max>
+      <resolution>0.01</resolution>
+    </range>
+    <noise>
+      <type>gaussian</type>
+      <mean>0</mean>
+      <stddev>0.02</stddev>
+    </noise>
+  </ray>
+  <always_on>1</always_on>
+  <visualize>true</visualize>
+</sensor>
+```
+
+## IMU Sensor
+
+```xml title="IMU sensor"
+<sensor name="imu" type="imu">
+  <pose>0 0 0.1 0 0 0</pose>
+  <topic>imu/data</topic>
+  <update_rate>100</update_rate>
+  <always_on>1</always_on>
+
+  <imu>
+    <angular_velocity>
+      <x>
+        <noise type="gaussian">
+          <mean>0</mean>
+          <stddev>0.0003</stddev>  <!-- rad/s -->
+          <bias_mean>0.0</bias_mean>
+          <bias_stddev>0.00001</bias_stddev>
+        </noise>
+      </x>
+      <y>
+        <noise type="gaussian">
+          <mean>0</mean>
+          <stddev>0.0003</stddev>
+          <bias_mean>0.0</bias_mean>
+          <bias_stddev>0.00001</bias_stddev>
+        </noise>
+      </y>
+      <z>
+        <noise type="gaussian">
+          <mean>0</mean>
+          <stddev>0.0003</stddev>
+          <bias_mean>0.0</bias_mean>
+          <bias_stddev>0.00001</bias_stddev>
+        </noise>
+      </z>
+    </angular_velocity>
+    <linear_acceleration>
+      <x>
+        <noise type="gaussian">
+          <mean>0</mean>
+          <stddev>0.01</stddev>  <!-- m/s^2 -->
+          <bias_mean>0.0</bias_mean>
+          <bias_stddev>0.001</bias_stddev>
+        </noise>
+      </x>
+      <y>
+        <noise type="gaussian">
+          <mean>0</mean>
+          <stddev>0.01</stddev>
+        </noise>
+      </y>
+      <z>
+        <noise type="gaussian">
+          <mean>0</mean>
+          <stddev>0.01</stddev>
+        </noise>
+      </z>
+    </linear_acceleration>
+  </imu>
+</sensor>
+```
+
+## Force/Torque Sensor
+
+```xml title="Force/torque sensor at joint"
+<sensor name="ft_sensor" type="force_torque">
+  <pose>0 0 0 0 0 0</pose>
+  <topic>ft_sensor</topic>
+  <update_rate>100</update_rate>
+  <always_on>1</always_on>
+
+  <force_torque>
+    <frame>child</frame>
+    <measure_direction>child_to_parent</measure_direction>
+    <force>
+      <x>
+        <noise type="gaussian">
+          <mean>0</mean>
+          <stddev>0.1</stddev>  <!-- N -->
+        </noise>
+      </x>
+      <y>
+        <noise type="gaussian">
+          <mean>0</mean>
+          <stddev>0.1</stddev>
+        </noise>
+      </y>
+      <z>
+        <noise type="gaussian">
+          <mean>0</mean>
+          <stddev>0.1</stddev>
+        </noise>
+      </z>
+    </force>
+    <torque>
+      <x>
+        <noise type="gaussian">
+          <mean>0</mean>
+          <stddev>0.01</stddev>  <!-- Nm -->
+        </noise>
+      </x>
+      <y>
+        <noise type="gaussian">
+          <mean>0</mean>
+          <stddev>0.01</stddev>
+        </noise>
+      </y>
+      <z>
+        <noise type="gaussian">
+          <mean>0</mean>
+          <stddev>0.01</stddev>
+        </noise>
+      </z>
+    </torque>
+  </force_torque>
+</sensor>
+```
+
+## Contact Sensor
+
+```xml title="Contact sensor for foot"
+<sensor name="foot_contact" type="contact">
+  <contact>
+    <collision>foot_collision</collision>
+  </contact>
+  <update_rate>100</update_rate>
+  <always_on>1</always_on>
+  <topic>foot_contact</topic>
+</sensor>
+```
+
+## Noise Models
+
+Realistic noise improves sim-to-real transfer:
+
+| Sensor | Noise Type | Typical Values |
+|--------|------------|----------------|
+| Camera | Gaussian on pixels | σ = 0.007 (normalized) |
+| LiDAR range | Gaussian | σ = 0.01-0.05 m |
+| IMU gyro | Gaussian + bias | σ = 0.0003 rad/s |
+| IMU accel | Gaussian + bias | σ = 0.01 m/s² |
+| Force sensor | Gaussian | σ = 0.1-1.0 N |
+
+```python title="Adding sensor noise in code"
+import numpy as np
+
+class NoisyIMU:
+    """IMU model with realistic noise characteristics."""
+
+    def __init__(self):
+        # Noise parameters (from datasheet)
+        self.gyro_noise = 0.0003  # rad/s
+        self.gyro_bias_stability = 0.00001  # rad/s per √Hz
+        self.accel_noise = 0.01  # m/s²
+        self.accel_bias_stability = 0.001  # m/s² per √Hz
+
+        # Current bias values (drift slowly)
+        self.gyro_bias = np.zeros(3)
+        self.accel_bias = np.zeros(3)
+
+    def add_noise(self, gyro: np.ndarray, accel: np.ndarray,
+                  dt: float) -> tuple:
+        """Add realistic noise to IMU readings."""
+        # Update bias (random walk)
+        self.gyro_bias += np.random.normal(
+            0, self.gyro_bias_stability * np.sqrt(dt), 3
+        )
+        self.accel_bias += np.random.normal(
+            0, self.accel_bias_stability * np.sqrt(dt), 3
+        )
+
+        # Add noise and bias
+        noisy_gyro = gyro + self.gyro_bias + np.random.normal(
+            0, self.gyro_noise, 3
+        )
+        noisy_accel = accel + self.accel_bias + np.random.normal(
+            0, self.accel_noise, 3
+        )
+
+        return noisy_gyro, noisy_accel
+```
+
+## Complete Sensor Suite
+
+```xml title="Full sensor configuration for humanoid"
+<model name="humanoid">
+  <!-- Head with cameras -->
+  <link name="head">
+    <sensor name="left_camera" type="camera">
+      <pose>0.1 0.03 0 0 0 0</pose>
+      <!-- Camera config -->
+    </sensor>
+    <sensor name="right_camera" type="camera">
+      <pose>0.1 -0.03 0 0 0 0</pose>
+      <!-- Camera config -->
+    </sensor>
+    <sensor name="depth" type="rgbd_camera">
+      <pose>0.1 0 0 0 0 0</pose>
+      <!-- Depth camera config -->
+    </sensor>
+  </link>
+
+  <!-- Torso with IMU -->
+  <link name="torso">
+    <sensor name="imu" type="imu">
+      <!-- IMU config -->
+    </sensor>
+  </link>
+
+  <!-- Feet with contact sensors -->
+  <link name="left_foot">
+    <sensor name="left_contact" type="contact">
+      <contact>
+        <collision>left_foot_collision</collision>
+      </contact>
+    </sensor>
+  </link>
+
+  <!-- Force/torque at ankles -->
+  <joint name="left_ankle">
+    <sensor name="left_ankle_ft" type="force_torque">
+      <!-- F/T config -->
+    </sensor>
+  </joint>
+</model>
+```
+
+<div className="key-takeaways">
+
+## Key Takeaways
+
+- **Cameras**: Configure resolution, FOV, clip planes, and pixel noise
+- **LiDAR**: Set samples, angles, range limits, and range noise
+- **IMU**: Model both instantaneous noise and bias drift
+- **Noise models** are critical for sim-to-real transfer
+- Use **ros_gz_bridge** to connect Gazebo sensors to ROS 2
+- **GPU-accelerated sensors** (gpu_lidar, gpu_ray) improve performance
+
+</div>
+
+## What's Next?
+
+In the next chapter, we'll explore Unity as an alternative simulation platform.
+
+## References
+
+1. Gazebo. (2024). *Sensor Documentation*. https://gazebosim.org/api/sensors/
+2. IEEE. (2019). *Standard for Robot Sensor Performance Test Methods*. IEEE 1873.

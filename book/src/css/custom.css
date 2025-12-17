@@ -1,0 +1,163 @@
+/**
+ * Physical AI & Humanoid Robotics Book
+ * Custom Docusaurus theme styles
+ */
+
+/* RAG Chatbot Widget Styles */
+@import './ragChatbot.css';
+
+/* Color palette - Light mode */
+:root {
+  --ifm-color-primary: #2e8555;
+  --ifm-color-primary-dark: #29784c;
+  --ifm-color-primary-darker: #277148;
+  --ifm-color-primary-darkest: #205d3b;
+  --ifm-color-primary-light: #33925d;
+  --ifm-color-primary-lighter: #359962;
+  --ifm-color-primary-lightest: #3cad6e;
+
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+
+  /* Custom colors */
+  --ifm-hero-background-color: #25c2a0;
+  --ifm-hero-text-color: #ffffff;
+}
+
+/* Color palette - Dark mode */
+[data-theme='dark'] {
+  --ifm-color-primary: #25c2a0;
+  --ifm-color-primary-dark: #21af90;
+  --ifm-color-primary-darker: #1fa588;
+  --ifm-color-primary-darkest: #1a8870;
+  --ifm-color-primary-light: #29d5b0;
+  --ifm-color-primary-lighter: #32d8b4;
+  --ifm-color-primary-lightest: #4fddbf;
+
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+}
+
+/* Hero styling */
+.hero--primary {
+  background-color: var(--ifm-hero-background-color);
+  color: var(--ifm-hero-text-color);
+}
+
+/* Code blocks */
+.prism-code {
+  font-size: 0.9rem;
+}
+
+/* Copy button styling */
+.copyButtonContainer_node_modules-\@docusaurus-theme-classic-lib-theme-CodeBlock-CopyButton-styles-module {
+  border-radius: 4px;
+}
+
+/* Admonition styling */
+.admonition {
+  margin-bottom: 1.5rem;
+  border-radius: 8px;
+}
+
+/* Sidebar styling */
+.menu__link {
+  font-size: 0.95rem;
+}
+
+.menu__list-item-collapsible:hover {
+  background: var(--ifm-color-emphasis-200);
+}
+
+/* Table of contents */
+.table-of-contents__link:hover,
+.table-of-contents__link--active {
+  color: var(--ifm-color-primary);
+}
+
+/* Mermaid diagrams */
+.mermaid {
+  background: transparent;
+  text-align: center;
+}
+
+/* Module project cards */
+.module-project {
+  border: 2px solid var(--ifm-color-primary);
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 1.5rem 0;
+  background: var(--ifm-color-emphasis-100);
+}
+
+.module-project h3 {
+  color: var(--ifm-color-primary);
+  margin-bottom: 0.5rem;
+}
+
+/* Learning objectives styling */
+.learning-objectives {
+  background: var(--ifm-color-emphasis-100);
+  border-left: 4px solid var(--ifm-color-primary);
+  padding: 1rem 1.5rem;
+  margin: 1.5rem 0;
+  border-radius: 0 8px 8px 0;
+}
+
+.learning-objectives h4 {
+  margin-top: 0;
+  color: var(--ifm-color-primary);
+}
+
+/* Key takeaways styling */
+.key-takeaways {
+  background: var(--ifm-color-emphasis-100);
+  border-left: 4px solid var(--ifm-color-success);
+  padding: 1rem 1.5rem;
+  margin: 1.5rem 0;
+  border-radius: 0 8px 8px 0;
+}
+
+.key-takeaways h4 {
+  margin-top: 0;
+  color: var(--ifm-color-success);
+}
+
+/* Prerequisites styling */
+.prerequisites {
+  background: var(--ifm-color-warning-contrast-background);
+  border-left: 4px solid var(--ifm-color-warning);
+  padding: 1rem 1.5rem;
+  margin: 1.5rem 0;
+  border-radius: 0 8px 8px 0;
+}
+
+.prerequisites h4 {
+  margin-top: 0;
+  color: var(--ifm-color-warning-dark);
+}
+
+/* Footer customization */
+.footer--dark {
+  background-color: #1a1a1a;
+}
+
+/* Responsive adjustments */
+@media screen and (max-width: 996px) {
+  .hero__title {
+    font-size: 2rem;
+  }
+
+  .hero__subtitle {
+    font-size: 1.2rem;
+  }
+}
+
+/* Print styles */
+@media print {
+  .navbar,
+  .footer,
+  .pagination-nav,
+  .table-of-contents {
+    display: none;
+  }
+}

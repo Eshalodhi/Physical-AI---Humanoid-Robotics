@@ -1,0 +1,548 @@
+openapi: 3.1.0
+info:
+  title: Physical AI Book RAG Chatbot API
+  description: |
+    API for the RAG-powered chatbot embedded in the Physical AI & Humanoid Robotics book.
+    Provides endpoints for querying book content, managing sessions, and health checks.
+  version: 1.0.0
+  contact:
+    name: Book Maintainers
+  license:
+    name: MIT
+
+servers:
+  - url: https://api.physicalai-book.example.com/v1
+    description: Production server
+  - url: http://localhost:8000/v1
+    description: Local development
+
+tags:
+  - name: Chat
+    description: Chatbot query and response operations
+  - name: Sessions
+    description: Session management
+  - name: Health
+    description: Service health and status
+  - name: Admin
+    description: Administrative operations (protected)
+
+paths:
+  /chat/query:
+    post:
+      summary: Submit a question to the chatbot
+      description: |
+        Processes a user question against the book corpus and returns a generated response
+        with source citations. Supports both full-corpus and scoped (selected text) queries.
+      operationId: submitQuery
+      tags:
+        - Chat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryRequest'
+            examples:
+              fullCorpus:
+                summary: Full corpus query
+                value:
+                  query: "What is the difference between URDF and SDF?"
+                  scope: "full"
+                  sessionId: "550e8400-e29b-41d4-a716-446655440000"
+              scopedQuery:
+                summary: Scoped query with selected text
+                value:
+                  query: "Explain this in simpler terms"
+                  scope: "selected"
+                  selectedText: "Nav2 uses behavior trees to coordinate..."
+                  currentPage: "/module3-isaac/chapter4-navigation"
+                  sessionId: "550e8400-e29b-41d4-a716-446655440000"
+      responses:
+        '200':
+          description: Successful response with answer and citations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryResponse'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /chat/feedback:
+    post:
+      summary: Submit feedback on a response
+      description: |
+        Allows users to provide feedback on chatbot responses for quality improvement.
+      operationId: submitFeedback
+      tags:
+        - Chat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedbackRequest'
+      responses:
+        '200':
+          description: Feedback recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Feedback recorded. Thank you!"
+        '400':
+          description: Invalid feedback request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /sessions:
+    post:
+      summary: Create a new chat session
+      description: |
+        Initializes a new chat session and returns a session ID for subsequent queries.
+      operationId: createSession
+      tags:
+        - Sessions
+      responses:
+        '201':
+          description: Session created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+
+  /sessions/{sessionId}:
+    get:
+      summary: Get session details
+      description: Returns information about an existing session including conversation history.
+      operationId: getSession
+      tags:
+        - Sessions
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Session details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionDetails'
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: End a chat session
+      description: Terminates a session and clears associated data.
+      operationId: deleteSession
+      tags:
+        - Sessions
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '204':
+          description: Session deleted
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /health:
+    get:
+      summary: Service health check
+      description: Returns the health status of the chatbot service and its dependencies.
+      operationId: healthCheck
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /health/ready:
+    get:
+      summary: Readiness probe
+      description: Returns whether the service is ready to accept requests.
+      operationId: readinessCheck
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is ready
+        '503':
+          description: Service is not ready
+
+  /admin/reindex:
+    post:
+      summary: Trigger content reindexing
+      description: |
+        Initiates a reindexing job to update vector embeddings from book content.
+        Requires admin authentication.
+      operationId: triggerReindex
+      tags:
+        - Admin
+      security:
+        - apiKey: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                chapters:
+                  type: array
+                  items:
+                    type: string
+                  description: Specific chapter IDs to reindex. Empty for full reindex.
+                  example: ["module1-ros2/chapter3", "module2-simulation/chapter1"]
+      responses:
+        '202':
+          description: Reindex job started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReindexJobResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/jobs/{jobId}:
+    get:
+      summary: Get reindex job status
+      description: Returns the status of a reindexing job.
+      operationId: getJobStatus
+      tags:
+        - Admin
+      security:
+        - apiKey: []
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Job status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobStatusResponse'
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    QueryRequest:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: The user's question
+          example: "What is the difference between URDF and SDF?"
+        scope:
+          type: string
+          enum: [full, selected]
+          default: full
+          description: Whether to search full corpus or scoped to selection
+        selectedText:
+          type: string
+          maxLength: 2000
+          description: Text selected by user (required when scope is 'selected')
+        currentPage:
+          type: string
+          description: Current page path for context
+          example: "/module2-simulation/chapter2-urdf-sdf"
+        sessionId:
+          type: string
+          format: uuid
+          description: Session ID for conversation continuity
+
+    QueryResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique response ID
+        answer:
+          type: string
+          description: The generated response text
+          example: "URDF (Unified Robot Description Format) and SDF (Simulation Description Format) are both XML-based formats..."
+        citations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Citation'
+        isOutOfScope:
+          type: boolean
+          description: True if question is outside book content
+          default: false
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Confidence score for the answer
+        usage:
+          $ref: '#/components/schemas/TokenUsage'
+        latencyMs:
+          type: integer
+          description: Response generation time in milliseconds
+
+    Citation:
+      type: object
+      properties:
+        chapterTitle:
+          type: string
+          example: "Chapter 2: URDF and SDF"
+        chapterSlug:
+          type: string
+          example: "/module2-simulation/chapter2-urdf-sdf"
+        sectionTitle:
+          type: string
+          example: "Comparing URDF and SDF"
+        relevanceScore:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        excerpt:
+          type: string
+          description: Brief excerpt from the source
+          maxLength: 200
+
+    TokenUsage:
+      type: object
+      properties:
+        promptTokens:
+          type: integer
+        completionTokens:
+          type: integer
+        totalTokens:
+          type: integer
+
+    FeedbackRequest:
+      type: object
+      required:
+        - responseId
+        - rating
+      properties:
+        responseId:
+          type: string
+          format: uuid
+          description: ID of the response being rated
+        rating:
+          type: string
+          enum: [helpful, not_helpful]
+        comment:
+          type: string
+          maxLength: 500
+          description: Optional feedback comment
+
+    SessionResponse:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+
+    SessionDetails:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        lastActivityAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        queryCount:
+          type: integer
+        conversationHistory:
+          type: array
+          items:
+            type: object
+            properties:
+              query:
+                type: string
+              answer:
+                type: string
+              timestamp:
+                type: string
+                format: date-time
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        version:
+          type: string
+          example: "1.0.0"
+        timestamp:
+          type: string
+          format: date-time
+        dependencies:
+          type: object
+          properties:
+            qdrant:
+              $ref: '#/components/schemas/DependencyStatus'
+            postgres:
+              $ref: '#/components/schemas/DependencyStatus'
+            openai:
+              $ref: '#/components/schemas/DependencyStatus'
+
+    DependencyStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [up, down, degraded]
+        latencyMs:
+          type: integer
+        message:
+          type: string
+
+    ReindexJobResponse:
+      type: object
+      properties:
+        jobId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, running]
+        startedAt:
+          type: string
+          format: date-time
+        estimatedChunks:
+          type: integer
+
+    JobStatusResponse:
+      type: object
+      properties:
+        jobId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, running, completed, failed]
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        progress:
+          type: object
+          properties:
+            chunksProcessed:
+              type: integer
+            chunksTotal:
+              type: integer
+            percentComplete:
+              type: number
+        errors:
+          type: array
+          items:
+            type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: "INVALID_REQUEST"
+            message:
+              type: string
+              example: "Query text is required"
+            details:
+              type: object
+              additionalProperties: true
+
+  parameters:
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      description: Session identifier
+      schema:
+        type: string
+        format: uuid
+
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for admin operations
+
+# Rate limiting headers (informational)
+# X-RateLimit-Limit: Maximum requests per window
+# X-RateLimit-Remaining: Remaining requests in current window
+# X-RateLimit-Reset: Unix timestamp when the window resets

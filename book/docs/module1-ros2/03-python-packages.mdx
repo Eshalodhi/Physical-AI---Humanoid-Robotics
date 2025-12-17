@@ -1,0 +1,455 @@
+---
+title: "Python Packages"
+sidebar_label: "Python Packages"
+sidebar_position: 3
+description: "Create and organize ROS 2 Python packages with proper project structure, dependencies, and build configuration"
+keywords: [ROS 2, Python packages, colcon, ament, package structure, rclpy]
+---
+
+# Python Packages
+
+<div className="learning-objectives">
+
+## Learning Objectives
+
+By the end of this chapter, you will be able to:
+
+- Create ROS 2 Python packages with proper structure
+- Configure package.xml and setup.py/setup.cfg
+- Build and install packages using colcon
+- Manage dependencies between packages
+- Follow ROS 2 package conventions
+
+</div>
+
+<div className="prerequisites">
+
+## Prerequisites
+
+Before starting this chapter, ensure you have:
+
+- **Software**: ROS 2 Humble with colcon installed
+- **Chapter**: Completed [Nodes and Topics](./02-nodes-topics)
+- **Python**: Understanding of Python packaging basics
+
+</div>
+
+## Package Structure
+
+A ROS 2 Python package follows this structure:
+
+```text
+my_robot_pkg/
+├── package.xml              # Package metadata
+├── setup.py                 # Python build configuration
+├── setup.cfg                # Setup tools configuration
+├── resource/
+│   └── my_robot_pkg         # Marker file for ament
+├── my_robot_pkg/            # Python module
+│   ├── __init__.py
+│   ├── node_one.py
+│   ├── node_two.py
+│   └── utils/
+│       ├── __init__.py
+│       └── helpers.py
+├── launch/                  # Launch files
+│   └── my_robot.launch.py
+├── config/                  # Configuration files
+│   └── params.yaml
+└── test/                    # Tests
+    └── test_node_one.py
+```
+
+## Creating a Package
+
+Use the ROS 2 package creation command:
+
+```bash
+# Navigate to your workspace src folder
+cd ~/ros2_ws/src
+
+# Create a Python package
+ros2 pkg create --build-type ament_python \
+    --node-name simple_node \
+    my_robot_pkg
+
+# Or with dependencies
+ros2 pkg create --build-type ament_python \
+    --node-name robot_controller \
+    --dependencies rclpy geometry_msgs sensor_msgs \
+    my_robot_pkg
+```
+
+## package.xml
+
+The `package.xml` defines package metadata and dependencies:
+
+```xml title="package.xml"
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd"
+            schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>my_robot_pkg</name>
+  <version>1.0.0</version>
+  <description>Robot control package for humanoid navigation</description>
+  <maintainer email="developer@example.com">Developer Name</maintainer>
+  <license>MIT</license>
+
+  <!-- Build dependencies -->
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <!-- Runtime dependencies -->
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+
+  <!-- Test dependencies -->
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
+```
+
+### Dependency Types
+
+| Tag | When Resolved | Use Case |
+|-----|---------------|----------|
+| `<build_depend>` | Build time | Code generation, build tools |
+| `<exec_depend>` | Runtime | Required to run nodes |
+| `<test_depend>` | Testing | Test frameworks, mocks |
+| `<depend>` | All phases | Shorthand for build + exec |
+
+## setup.py and setup.cfg
+
+The `setup.py` configures the Python package:
+
+```python title="setup.py"
+from setuptools import find_packages, setup
+
+package_name = 'my_robot_pkg'
+
+setup(
+    name=package_name,
+    version='1.0.0',
+    packages=find_packages(exclude=['test']),
+    data_files=[
+        # Install marker file
+        ('share/ament_index/resource_index/packages',
+            ['resource/' + package_name]),
+        # Install package.xml
+        ('share/' + package_name, ['package.xml']),
+        # Install launch files
+        ('share/' + package_name + '/launch',
+            ['launch/my_robot.launch.py']),
+        # Install config files
+        ('share/' + package_name + '/config',
+            ['config/params.yaml']),
+    ],
+    install_requires=['setuptools'],
+    zip_safe=True,
+    maintainer='Developer Name',
+    maintainer_email='developer@example.com',
+    description='Robot control package for humanoid navigation',
+    license='MIT',
+    tests_require=['pytest'],
+    entry_points={
+        'console_scripts': [
+            'robot_controller = my_robot_pkg.robot_controller:main',
+            'sensor_processor = my_robot_pkg.sensor_processor:main',
+            'state_estimator = my_robot_pkg.state_estimator:main',
+        ],
+    },
+)
+```
+
+```ini title="setup.cfg"
+[develop]
+script_dir=$base/lib/my_robot_pkg
+
+[install]
+install_scripts=$base/lib/my_robot_pkg
+```
+
+### Entry Points
+
+Entry points define the executables that get installed:
+
+```python
+entry_points={
+    'console_scripts': [
+        # Format: 'executable_name = module.file:function'
+        'robot_controller = my_robot_pkg.robot_controller:main',
+    ],
+}
+```
+
+After building, you can run:
+
+```bash
+ros2 run my_robot_pkg robot_controller
+```
+
+## Complete Node Example
+
+Here's a well-structured node within a package:
+
+```python title="my_robot_pkg/robot_controller.py"
+#!/usr/bin/env python3
+"""
+Robot controller node for velocity command processing.
+
+This node subscribes to high-level velocity commands and publishes
+wheel velocities for a differential drive robot.
+"""
+
+import rclpy
+from rclpy.node import Node
+from rclpy.qos import QoSProfile, ReliabilityPolicy
+from geometry_msgs.msg import Twist
+from std_msgs.msg import Float64MultiArray
+
+
+class RobotController(Node):
+    """
+    Controller node for differential drive robot.
+
+    Subscribes to /cmd_vel and publishes individual wheel velocities.
+    """
+
+    def __init__(self):
+        super().__init__('robot_controller')
+
+        # Declare parameters with defaults
+        self.declare_parameter('wheel_base', 0.5)
+        self.declare_parameter('wheel_radius', 0.1)
+        self.declare_parameter('max_wheel_speed', 2.0)
+
+        # Get parameter values
+        self.wheel_base = self.get_parameter('wheel_base').value
+        self.wheel_radius = self.get_parameter('wheel_radius').value
+        self.max_speed = self.get_parameter('max_wheel_speed').value
+
+        # Setup QoS
+        cmd_qos = QoSProfile(
+            depth=10,
+            reliability=ReliabilityPolicy.RELIABLE
+        )
+
+        # Create subscriber
+        self.cmd_sub = self.create_subscription(
+            Twist,
+            'cmd_vel',
+            self._cmd_callback,
+            cmd_qos
+        )
+
+        # Create publisher
+        self.wheel_pub = self.create_publisher(
+            Float64MultiArray,
+            'wheel_velocities',
+            10
+        )
+
+        self.get_logger().info(
+            f'Robot controller initialized: '
+            f'wheel_base={self.wheel_base}m, '
+            f'wheel_radius={self.wheel_radius}m'
+        )
+
+    def _cmd_callback(self, msg: Twist) -> None:
+        """Convert Twist to wheel velocities."""
+        linear = msg.linear.x
+        angular = msg.angular.z
+
+        # Differential drive kinematics
+        left_vel = (linear - angular * self.wheel_base / 2) / self.wheel_radius
+        right_vel = (linear + angular * self.wheel_base / 2) / self.wheel_radius
+
+        # Clamp to max speed
+        left_vel = max(-self.max_speed, min(self.max_speed, left_vel))
+        right_vel = max(-self.max_speed, min(self.max_speed, right_vel))
+
+        # Publish wheel velocities
+        wheel_msg = Float64MultiArray()
+        wheel_msg.data = [left_vel, right_vel]
+        self.wheel_pub.publish(wheel_msg)
+
+        self.get_logger().debug(
+            f'Wheel velocities: L={left_vel:.2f}, R={right_vel:.2f} rad/s'
+        )
+
+
+def main(args=None):
+    """Entry point for the robot controller node."""
+    rclpy.init(args=args)
+
+    node = RobotController()
+
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        node.get_logger().info('Shutting down...')
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()
+```
+
+## Building Packages
+
+Use colcon to build your workspace:
+
+```bash
+# Navigate to workspace root
+cd ~/ros2_ws
+
+# Build all packages
+colcon build
+
+# Build specific package
+colcon build --packages-select my_robot_pkg
+
+# Build with symlink install (faster development)
+colcon build --symlink-install
+
+# Source the workspace
+source install/setup.bash
+```
+
+### Build Output
+
+```text
+ros2_ws/
+├── build/           # Build artifacts
+│   └── my_robot_pkg/
+├── install/         # Installed packages
+│   ├── my_robot_pkg/
+│   │   ├── lib/my_robot_pkg/  # Executables
+│   │   └── share/my_robot_pkg/ # Launch, config
+│   ├── setup.bash   # Workspace overlay
+│   └── local_setup.bash
+├── log/             # Build logs
+└── src/             # Source packages
+    └── my_robot_pkg/
+```
+
+## Managing Dependencies
+
+### Installing Dependencies
+
+```bash
+# Install dependencies for all packages in workspace
+cd ~/ros2_ws
+rosdep install --from-paths src --ignore-src -r -y
+```
+
+### Inter-Package Dependencies
+
+When one of your packages depends on another:
+
+```xml title="package_a/package.xml"
+<depend>package_b</depend>
+```
+
+Colcon automatically determines build order.
+
+## Testing Packages
+
+ROS 2 uses pytest for Python testing:
+
+```python title="test/test_robot_controller.py"
+import pytest
+import rclpy
+from my_robot_pkg.robot_controller import RobotController
+
+
+@pytest.fixture
+def node():
+    """Create a node for testing."""
+    rclpy.init()
+    node = RobotController()
+    yield node
+    node.destroy_node()
+    rclpy.shutdown()
+
+
+def test_node_creation(node):
+    """Test that node initializes correctly."""
+    assert node.get_name() == 'robot_controller'
+
+
+def test_parameters(node):
+    """Test parameter defaults."""
+    assert node.wheel_base == 0.5
+    assert node.wheel_radius == 0.1
+```
+
+Run tests:
+
+```bash
+# Build and test
+colcon build --packages-select my_robot_pkg
+colcon test --packages-select my_robot_pkg
+
+# View test results
+colcon test-result --verbose
+```
+
+## Package Conventions
+
+### Naming
+
+- Package names: `lowercase_with_underscores`
+- Node names: `lowercase_with_underscores`
+- Topics: `/namespace/topic_name` (lowercase, with slashes)
+
+### File Organization
+
+```python
+# Good: Separate concerns
+my_robot_pkg/
+    __init__.py
+    robot_controller.py    # Node
+    motion_planner.py      # Node
+    utils/
+        kinematics.py      # Utility functions
+        transforms.py      # Utility functions
+```
+
+```python
+# Bad: Monolithic files
+my_robot_pkg/
+    __init__.py
+    everything.py  # 2000 lines of mixed code
+```
+
+<div className="key-takeaways">
+
+## Key Takeaways
+
+- **Package structure** includes `package.xml`, `setup.py`, and a Python module
+- **package.xml** declares metadata and dependencies
+- **setup.py** configures entry points (executables) and data files
+- **colcon build** compiles packages; use `--symlink-install` for development
+- **rosdep** installs system dependencies automatically
+- Follow **naming conventions**: lowercase with underscores
+
+</div>
+
+## What's Next?
+
+In the next chapter, we'll learn how to create launch files that start multiple nodes with configuration.
+
+## References
+
+1. Open Robotics. (2024). *Creating a Package*. https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Creating-Your-First-ROS2-Package.html
+2. Open Robotics. (2024). *Colcon Tutorial*. https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Colcon-Tutorial.html
