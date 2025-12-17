@@ -9,7 +9,7 @@ const config = {
 
   // Production URL
   url: 'https://your-username.github.io',
-  baseUrl: '/Physical-AI---Humanoid-Robotics/',
+  baseUrl: '/',
 
   // GitHub pages deployment config
   organizationName: 'your-username',
